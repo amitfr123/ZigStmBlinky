@@ -29,11 +29,15 @@ pub fn build(b: *std.build.Builder) void {
         elf.setLinkerScriptPath(.{ .path = "src/link/STM32F446RETx_FLASH.ld" });
     }
     b.installArtifact(elf);
+
     const bin = elf.addObjCopy(.{ .basename = "app.bin", .format = .bin });
+    bin.step.dependOn(b.getInstallStep());
+
+    const copy_bin = b.addInstallBinFile(bin.getOutput(), "app.bin");
+    copy_bin.step.dependOn(&bin.step);
 
     const bin_step = b.step("bin", "Generate binary file to be flashed");
-    bin_step.dependOn(&elf.step);
-    b.getInstallStep().dependOn(&bin.step);
+    bin_step.dependOn(&copy_bin.step);
 
     const qemu_r = b.addSystemCommand(&[_][]const u8{ "qemu-system-gnuarmeclipse", "-M", "STM32F4-Discovery", "-m", "128M", "-kernel", "zig-out/bin/app.elf" });
     qemu_r.step.dependOn(b.getInstallStep());
@@ -60,7 +64,7 @@ pub fn build(b: *std.build.Builder) void {
         "-D",
         "-m",
         "arm",
-        "zig-out/bin/app.bin",
+        "zig-out/bin/app.elf",
     });
     dumpELFCommand.step.dependOn(b.getInstallStep());
     const dumpELFStep = b.step("dump-elf", "Disassemble the ELF executable");
